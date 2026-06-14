@@ -201,24 +201,15 @@ async def cancel(update, context):
     return ConversationHandler.END
 
 def main():
+    import asyncio
     app = Application.builder().token(BOT_TOKEN).build()
-    conv_handler = ConversationHandler(
-        entry_points=[CallbackQueryHandler(lambda u,c: None, pattern="^buy$")],
-        states={
-            MONTHS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_months)],
-            VOLUME: [CallbackQueryHandler(buy_volume, pattern="^vol_")],
-            PAYMENT_METHOD: [
-                CallbackQueryHandler(pay_card, pattern="^pay_card$"),
-                CallbackQueryHandler(pay_wallet, pattern="^pay_wallet$")
-            ],
-            TRACKING_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, tracking_code_received)],
-        },
-        fallbacks=[CommandHandler("cancel", cancel)]
-    )
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(conv_handler)
-    app.run_polling()
+    # اجرای صحیح با asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(app.run_polling())
 
 if __name__ == "__main__":
     main()
