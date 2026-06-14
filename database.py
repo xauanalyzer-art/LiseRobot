@@ -73,7 +73,7 @@ def add_transaction(user_id, amount, method, tracking_code, status):
     c.execute("INSERT INTO transactions (user_id, amount, method, tracking_code, status, created_at) VALUES (?, ?, ?, ?, ?, ?)",
               (user_id, amount, method, tracking_code, status, datetime.now()))
     conn.commit()
-    conn.close()
+    return c.lastrowid
 
 def add_service(user_id, volume, months, total_price, status):
     conn = sqlite3.connect(DB_NAME)
@@ -86,7 +86,7 @@ def add_service(user_id, volume, months, total_price, status):
 def get_pending_transactions():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("SELECT * FROM transactions WHERE status = 'pending' ORDER BY created_at DESC")
+    c.execute("SELECT id, user_id, amount, tracking_code, created_at FROM transactions WHERE status = 'pending' ORDER BY created_at DESC")
     rows = c.fetchall()
     conn.close()
     return rows
@@ -95,5 +95,7 @@ def confirm_transaction(tx_id):
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("UPDATE transactions SET status = 'confirmed' WHERE id = ?", (tx_id,))
+    # همچنین سرویس مرتبط را از wait_payment به wait_config تغییر بده
+    c.execute("UPDATE services SET status = 'wait_config' WHERE id = (SELECT service_id FROM temp WHERE tx_id = ?)", (tx_id,))  # ساده‌تر: در admin خودمان service_id را نگه می‌داریم. برای سادگی فعلاً همین کافی است.
     conn.commit()
     conn.close()
