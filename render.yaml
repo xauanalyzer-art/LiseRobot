@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: lise-robot
+    runtime: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python bot.py & python admin.py"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
