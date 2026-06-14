@@ -87,7 +87,7 @@ async def callback_handler(update, context):
     if data == "buy":
         context.user_data["buy_step"] = MONTHS
         await query.edit_message_text("📅 تعداد ماه مورد نظر را وارد کنید (عدد بین 1 تا 12):")
-        return ConversationHandler.END  # باید برگردیم به مکالمه
+        return MONTHS  # برای ConversationHandler
 
     if data == "wallet":
         keyboard = [
@@ -178,7 +178,6 @@ async def pay_wallet(update, context):
         service_id = db.add_service(user_id, context.user_data["volume"], context.user_data["months"], total, "wait_config")
         db.add_transaction(user_id, total, "wallet", "کیف پول", "confirmed")
         await query.edit_message_text(f"✅ خرید موفق! مبلغ {total:,} تومان از کیف پول کسر شد.\nسرویس شما ثبت شد و به زودی کانفیگ ارسال می‌شود.")
-        # اطلاع به ادمین
         await context.bot.send_message(ADMIN_ID, f"سرویس جدید از {user_id} - حجم {context.user_data['volume']} گیگ - {context.user_data['months']} ماه - نیاز به ارسال کانفیگ")
         return ConversationHandler.END
     else:
@@ -192,7 +191,6 @@ async def tracking_code_received(update, context):
     db.add_transaction(user_id, total, "card", code, "pending")
     db.add_service(user_id, context.user_data["volume"], context.user_data["months"], total, "wait_payment")
     await update.message.reply_text("✅ درخواست خرید ثبت شد. پس از تأیید پرداخت توسط ادمین، کانفیگ برای شما ارسال می‌شود.")
-    # اطلاع به ادمین
     await context.bot.send_message(ADMIN_ID, f"💰 تراکنش جدید نیاز به تأیید:\nکاربر {user_id}\nمبلغ {total:,} تومان\nکد رهگیری: {code}\nبرای تأیید به پنل ادمین مراجعه کنید.")
     return ConversationHandler.END
 
@@ -203,10 +201,27 @@ async def cancel(update, context):
 def main():
     import asyncio
     app = Application.builder().token(BOT_TOKEN).build()
+    
+    # تعریف ConversationHandler
+    conv_handler = ConversationHandler(
+        entry_points=[CallbackQueryHandler(callback_handler, pattern="^buy$")],
+        states={
+            MONTHS: [MessageHandler(filters.TEXT & ~filters.COMMAND, buy_months)],
+            VOLUME: [CallbackQueryHandler(buy_volume, pattern="^vol_")],
+            PAYMENT_METHOD: [
+                CallbackQueryHandler(pay_card, pattern="^pay_card$"),
+                CallbackQueryHandler(pay_wallet, pattern="^pay_wallet$")
+            ],
+            TRACKING_CODE: [MessageHandler(filters.TEXT & ~filters.COMMAND, tracking_code_received)],
+        },
+        fallbacks=[CommandHandler("cancel", cancel)]
+    )
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(callback_handler))
     app.add_handler(conv_handler)
-    # اجرای صحیح با asyncio
+    
+    # اجرای صحیح با asyncio برای پایتون 3.10
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(app.run_polling())
